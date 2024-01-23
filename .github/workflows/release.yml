@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        component: [guacd, guacenc]
+        # component: [guacd, guacenc], See: https://issues.apache.org/jira/browse/GUACAMOLE-1330
+        component: [guacd]
         distro: [bullseye, bookworm]
     permissions:
       contents: read
