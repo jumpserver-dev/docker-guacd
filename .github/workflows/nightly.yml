@@ -1,6 +1,6 @@
 on:
   schedule:
-    - cron: '0 20 * * 0'
+    - cron: '0 20 * * *'
   workflow_dispatch:
 
 name: Auto Build for nightly
@@ -10,15 +10,48 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        component: [guacd]
-        # component: [guacd, guacenc]
-        distro: [bullseye, bookworm]
+        component: [ 'guacd' ]
+        # component: [ guacd, guacenc ]
+        distro: [bullseye, bookworm, trixie ]
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+
       - name: Checkout code
         uses: actions/checkout@v4
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
+
+      - name: Cache
+        uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            var-cache-apt
+            var-lib-apt
+            build-ccache
+          key: cache-${{ matrix.component }}-${{ matrix.distro }}
+          save-always: true
+
+      - name: inject cache into docker
+        uses: reproducible-containers/buildkit-cache-dance@v3.1.0
+        with:
+          cache-map: |
+            {
+              "var-cache-apt": "/var/cache/apt",
+              "var-lib-apt": "/var/lib/apt",
+              "build-ccache": "/root/.cache/ccache"
+            }
+          skip-extraction: ${{ steps.cache.outputs.cache-hit }}
 
       - name: Set serial
         run: |
@@ -38,16 +71,12 @@ jobs:
           username: ${{ secrets.GHCRHUB_USERNAME }}
           password: ${{ secrets.GHCRHUB_TOKEN }}
 
-      - name: Get Dockerfile
-        run: |
-          wget -O Dockerfile.guacd https://github.com/wojiushixiaobai/docker-library-loong64/raw/master/guacamole-server/nightly/slim-${{ matrix.distro }}/Dockerfile
-          # wget -O Dockerfile.guacenc https://github.com/wojiushixiaobai/docker-library-loong64/raw/master/guacamole-server/nightly/slim-${{ matrix.distro }}/guacenc/Dockerfile
-
       - name: Build and push
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.${{matrix.component}}
+          provenance: false
+          file: debian/${{ matrix.distro }}/Dockerfile
           platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
           push: true
           tags: |
