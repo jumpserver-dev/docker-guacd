@@ -131,8 +131,7 @@ RUN set -ex \
     && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
     && rm -f ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh \
     && wget -O ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh https://github.com/wojiushixiaobai/guacamole-server/raw/4f2704ce642d3a8a31d0d92878a92e94a92187dc/src/guacd-docker/bin/build-all.sh \
-    && wget -O ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh https://github.com/apache/guacamole-server/raw/c880f02fe88f83ccabbbb5d057a64d4de3dc4219/src/guacd-docker/bin/link-freerdp-plugins.sh \
-    && wget -O ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies.sh https://github.com/apache/guacamole-server/raw/c880f02fe88f83ccabbbb5d057a64d4de3dc4219/src/guacd-docker/bin/list-dependencies.sh \
+    && wget -O ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies.sh https://github.com/wojiushixiaobai/guacamole-server/raw/601ee1f81945fd5c1be935a200035c09bbaa9123/src/guacd-docker/bin/list-dependencies.sh \
     && sed -i 's@make check && @@g' ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh \
     && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
 
