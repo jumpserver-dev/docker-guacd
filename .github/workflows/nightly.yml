@@ -63,7 +63,7 @@ jobs:
           context: .
           provenance: false
           file: debian/${{ matrix.distro }}/Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/ppc64le,linux/s390x
+          platforms: ${{ matrix.distro == 'bullseye' && 'linux/amd64,linux/arm64' || 'linux/amd64,linux/arm64,linux/ppc64le,linux/s390x' }}
           push: true
           tags: |
             jumpserver/${{ matrix.component }}:${{ env.serial }}-${{ matrix.distro }}
