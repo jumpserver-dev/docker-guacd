@@ -5,6 +5,10 @@ on:
         description: 'Build Version'
         required: true
         default: '1.5.5'
+      freerdp_version:
+        description: 'FreeRDP Version'
+        required: true
+        default: '2'
 
 name: Checkout and Create Release Version
 
@@ -65,6 +69,7 @@ jobs:
           push: true
           build-args: |
             VERSION=${{ github.event.inputs.version }}
+            FREERDP_VERSION=${{ github.event.inputs.freerdp_version }}
           tags: |
             jumpserver/${{ matrix.component }}:${{ github.event.inputs.version }}-${{ matrix.distro }}
             ghcr.io/jumpserver/${{ matrix.component }}:${{ github.event.inputs.version }}-${{ matrix.distro }}
