@@ -19,7 +19,8 @@ jobs:
       matrix:
         component: ['guacd']
         # component: [guacd, guacenc]
-        distro: ['bullseye', 'bookworm', 'trixie']
+        # distro: ['bullseye', 'bookworm', 'trixie']
+        distro: ['bullseye',]
     steps:
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
