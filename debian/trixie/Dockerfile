@@ -174,6 +174,8 @@ RUN set -ex \
     && apt-get install -y --no-install-recommends $TOOLS \
     && echo "no" | dpkg-reconfigure dash
 
+ARG VERSION=main
+
 RUN set -ex \
     && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
     && rm ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
