@@ -67,7 +67,7 @@ jobs:
             VERSION=${{ github.event.inputs.version }}
             FREERDP_VERSION=${{ github.event.inputs.freerdp_version }}
           tags: |
-            ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-${{ matrix.arch }}
+            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-${{ matrix.arch }}
           outputs: type=image,oci-mediatypes=true,compression=zstd,compression-level=3,force-compression=true
         if: contains(github.event.inputs.PLATFORMS, matrix.platform)
   merge-manifest:
@@ -96,6 +96,6 @@ jobs:
         run: |
           docker buildx imagetools create \
             -t jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }} \
-            -t ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }} \
-            ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-amd64 \
-            ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-arm64
+            -t ghcr.io/umpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }} \
+            ghcr.io/umpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-amd64 \
+            ghcr.io/umpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-arm64
