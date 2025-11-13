@@ -26,14 +26,16 @@ jobs:
   build:
     strategy:
       matrix:
-        platform: ${{ fromJson(format('["{0}"]', join(split(inputs.PLATFORMS, ','), '","'))) }}
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
+            arch: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
+            arch: arm64
 
     runs-on: ${{ matrix.runner }}
+    if: contains(github.event.inputs.PLATFORMS, matrix.platform)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -63,7 +65,7 @@ jobs:
             VERSION=${{ github.event.inputs.version }}
             FREERDP_VERSION=${{ github.event.inputs.freerdp_version }}
           tags: |
-            ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+            ghcr.io/jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-${{ matrix.arch }}
           outputs: type=image,oci-mediatypes=true,compression=zstd,compression-level=3,force-compression=true
 
   merge-manifest:
