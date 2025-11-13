@@ -178,11 +178,12 @@ ARG VERSION=main
 
 RUN set -ex \
     && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
-    && rm ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
+    && rm -f ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh \
+    && rm -rf ${BUILD_DIR}/.git
     
 # Copy generic, automatic build script
 COPY list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/
-COPY autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/
+COPY autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
 RUN set -ex \
     && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
 # Build dependency: openssl
