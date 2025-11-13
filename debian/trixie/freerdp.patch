@@ -1,0 +1,68 @@
+diff --git a/libfreerdp/core/info.c b/libfreerdp/core/info.c
+index 9aaa6cf..f2fc98c 100644
+--- a/libfreerdp/core/info.c
++++ b/libfreerdp/core/info.c
+@@ -85,7 +85,7 @@ static BOOL rdp_read_info_null_string(const char* what, UINT32 flags, wStream* s
+ 
+ 	if (cbLen > 0)
+ 	{
+-		const WCHAR* domain = Stream_Pointer(s);
++		const WCHAR* domain = (const WCHAR*)Stream_Pointer(s);
+ 
+ 		if (isNullTerminated && (max > 0))
+ 			max -= nullSize;
+diff --git a/libfreerdp/core/redirection.c b/libfreerdp/core/redirection.c
+index 59c6dbc..5f442e5 100644
+--- a/libfreerdp/core/redirection.c
++++ b/libfreerdp/core/redirection.c
+@@ -86,14 +86,14 @@ static void redirection_free_data(BYTE** str, UINT32* length)
+ 	*str = NULL;
+ }
+ 
+-static BOOL redirection_copy_data(char** dst, UINT32* plen, const char* str, UINT32 len)
++static BOOL redirection_copy_data(BYTE** dst, UINT32* plen, const BYTE* str, UINT32 len)
+ {
+ 	redirection_free_data(dst, plen);
+ 
+ 	if (!str || (len == 0))
+ 		return TRUE;
+ 
+-	*dst = malloc(len);
++	*dst = (BYTE*)malloc(len);
+ 	if (!*dst)
+ 		return FALSE;
+ 	memcpy(*dst, str, len);
+@@ -109,27 +109,27 @@ static BOOL freerdp_settings_set_pointer_len(rdpSettings* settings, size_t id, c
+ 	switch (id)
+ 	{
+ 		case FreeRDP_TargetNetAddress:
+-			pdata = &settings->TargetNetAddress;
++			pdata = (BYTE**)&settings->TargetNetAddress;
+ 			plen = &settings->TargetNetAddressCount;
+ 			break;
+ 		case FreeRDP_LoadBalanceInfo:
+-			pdata = &settings->LoadBalanceInfo;
++			pdata = (BYTE**)&settings->LoadBalanceInfo;
+ 			plen = &settings->LoadBalanceInfoLength;
+ 			break;
+ 		case FreeRDP_RedirectionPassword:
+-			pdata = &settings->RedirectionPassword;
++			pdata = (BYTE**)&settings->RedirectionPassword;
+ 			plen = &settings->RedirectionPasswordLength;
+ 			break;
+ 		case FreeRDP_RedirectionTsvUrl:
+-			pdata = &settings->RedirectionTsvUrl;
++			pdata = (BYTE**)&settings->RedirectionTsvUrl;
+ 			plen = &settings->RedirectionTsvUrlLength;
+ 			break;
+ 		case FreeRDP_RedirectionGuid:
+-			pdata = &settings->RedirectionGuid;
++			pdata = (BYTE**)&settings->RedirectionGuid;
+ 			plen = &settings->RedirectionGuidLength;
+ 			break;
+ 		case FreeRDP_RedirectionTargetCertificate:
+-			pdata = &settings->RedirectionTargetCertificate;
++			pdata = (BYTE**)&settings->RedirectionTargetCertificate;
+ 			plen = &settings->RedirectionTargetCertificateLength;
+ 			break;
+ 		default:

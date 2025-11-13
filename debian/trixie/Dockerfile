@@ -1,21 +1,40 @@
-FROM debian:trixie-slim AS builder
-WORKDIR /opt
-ENV LC_ALL=C.UTF-8
+# The target architecture of the build. Valid values are "ARM" and "X86". By
+# default, this is detected automatically.
+ARG BUILD_ARCHITECTURE
 
-ARG PREFIX_DIR=/opt/guacamole
+# The number of processes that may run simultaneously during the build. By
+# default, this is detected automatically.
+ARG BUILD_JOBS
 
+# The directory that will house the guacamole-server source during the build 
 ARG BUILD_DIR=/tmp/guacamole-server
 
-ARG FREERDP_VERSION=3
+# FreeRDP version (default to version 2)
+ARG FREERDP_VERSION=2
 
-ARG WITH_OPENSSL='OpenSSL_1(\_\d+\w*)+'
+# The final install location for guacamole-server and all dependencies. NOTE:
+# This value is hard-coded in the entrypoint. Any change to this value must be
+# propagated there.
+ARG PREFIX_DIR=/opt/guacamole
+
+#
+# Automatically select the latest versions of each core protocol support
+# library (these can be overridden at build time if a specific version is
+# needed)
+#
 ARG WITH_FREERDP="${FREERDP_VERSION}(\.\d+)+"
 ARG WITH_LIBSSH2='libssh2-\d+(\.\d+)+'
 ARG WITH_LIBTELNET='\d+(\.\d+)+'
 ARG WITH_LIBVNCCLIENT='LibVNCServer-\d+(\.\d+)+'
 ARG WITH_LIBWEBSOCKETS='v\d+(\.\d+)+'
 
-ARG OPENSSL_OPTS=""
+#
+# Default build options for each core protocol support library, as well as
+# guacamole-server itself (these can be overridden at build time if different
+# options are needed)
+#
+
+ARG FREERDP_ARM_OPTS=""
 
 ARG FREERDP_OPTS="\
     -DBUILTIN_CHANNELS=OFF \
@@ -59,18 +78,38 @@ ARG FREERDP_OPTS="\
     -DWITH_XV=OFF \
     -DWITH_ZLIB=ON"
 
+ARG FREERDP_X86_OPTS=""
+
+ARG GUACAMOLE_SERVER_ARM_OPTS=""
+
 ARG GUACAMOLE_SERVER_OPTS="\
     --disable-guaclog"
+
+ARG GUACAMOLE_SERVER_X86_OPTS=""
+
+ARG LIBSSH2_ARM_OPTS=""
 
 ARG LIBSSH2_OPTS="\
     -DBUILD_EXAMPLES=OFF \
     -DBUILD_SHARED_LIBS=ON"
 
+ARG LIBSSH2_X86_OPTS=""
+
+ARG LIBTELNET_ARM_OPTS=""
+
 ARG LIBTELNET_OPTS="\
     --disable-static \
     --disable-util"
 
+ARG LIBTELNET_X86_OPTS=""
+
+ARG LIBVNCCLIENT_ARM_OPTS=""
+
 ARG LIBVNCCLIENT_OPTS=""
+
+ARG LIBVNCCLIENT_X86_OPTS=""
+
+ARG LIBWEBSOCKETS_ARM_OPTS=""
 
 ARG LIBWEBSOCKETS_OPTS="\
     -DDISABLE_WERROR=ON \
@@ -81,6 +120,19 @@ ARG LIBWEBSOCKETS_OPTS="\
     -DLWS_WITHOUT_TEST_SERVER=ON \
     -DLWS_WITHOUT_TEST_SERVER_EXTPOLL=ON \
     -DLWS_WITH_STATIC=OFF"
+
+ARG LIBWEBSOCKETS_X86_OPTS=""
+
+ARG WITH_OPENSSL='OpenSSL_1(\_\d+\w*)+'
+
+ARG OPENSSL_OPTS=""
+
+# Base builder image that will be used by subsequent build stages, including
+# for building dependencies of guacamole-server.
+#
+
+FROM debian:trixie-slim AS builder
+ARG BUILD_DIR
 
 ARG BUILD_DEPENDENCIES="          \
         autoconf                  \
@@ -114,73 +166,180 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV USE_CCACHE=1 \
     PATH=/usr/lib/ccache:${PATH}
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    set -ex \
+RUN set -ex \
     && rm -f /etc/apt/apt.conf.d/docker-clean \
     && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' >/etc/apt/apt.conf.d/keep-cache \
     && apt-get update \
     && apt-get install -y --no-install-recommends $BUILD_DEPENDENCIES \
     && apt-get install -y --no-install-recommends $TOOLS \
-    && apt-get install -y --no-install-recommends gcc-multilib || true \
     && echo "no" | dpkg-reconfigure dash
-
-ARG VERSION=main
 
 RUN set -ex \
     && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
-    && rm -f ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh \
-    && wget -O ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh https://github.com/wojiushixiaobai/guacamole-server/raw/4f2704ce642d3a8a31d0d92878a92e94a92187dc/src/guacd-docker/bin/build-all.sh \
-    && wget -O ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies.sh https://github.com/wojiushixiaobai/guacamole-server/raw/601ee1f81945fd5c1be935a200035c09bbaa9123/src/guacd-docker/bin/list-dependencies.sh \
-    && sed -i 's@make check && @@g' ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh \
+    && rm ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
+    
+# Copy generic, automatic build script
+COPY list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/
+COPY autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/
+RUN set -ex \
     && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
+# Build dependency: openssl
+ARG PREFIX_DIR
+ARG WITH_OPENSSL
+ARG OPENSSL_OPTS=""
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "OPENSSL" \
+    "https://github.com/openssl/openssl"
 
-ENV PATH=/usr/lib/ccache:${PATH}
 
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    ${BUILD_DIR}/src/guacd-docker/bin/build-all.sh
+# Build dependency: libssh2
+FROM builder AS libssh2
+ARG BUILD_DIR
+ARG LIBSSH2_ARM_OPTS
+ARG LIBSSH2_OPTS
+ARG LIBSSH2_X86_OPTS
+ARG PREFIX_DIR
+ARG WITH_LIBSSH2
 
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBSSH2" \
+    "https://github.com/libssh2/libssh2"
+
+#
+# Build dependency: libtelnet
+#
+
+FROM builder AS libtelnet
+ARG BUILD_DIR
+ARG LIBTELNET_ARM_OPTS
+ARG LIBTELNET_OPTS
+ARG LIBTELNET_X86_OPTS
+ARG PREFIX_DIR
+ARG WITH_LIBTELNET
+
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBTELNET" \
+    "https://github.com/seanmiddleditch/libtelnet"
+
+#
+# Build dependency: libvncclient
+#
+
+FROM builder AS libvncclient
+ARG BUILD_DIR
+ARG LIBVNCCLIENT_ARM_OPTS
+ARG LIBVNCCLIENT_OPTS
+ARG LIBVNCCLIENT_X86_OPTS
+ARG PREFIX_DIR
+ARG WITH_LIBVNCCLIENT
+
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBVNCCLIENT" \
+    "https://github.com/LibVNC/libvncserver"
+
+#
+# Build dependency: libwebsockets
+#
+
+FROM builder AS libwebsockets
+ARG BUILD_DIR
+ARG LIBWEBSOCKETS_ARM_OPTS
+ARG LIBWEBSOCKETS_OPTS
+ARG LIBWEBSOCKETS_X86_OPTS
+ARG PREFIX_DIR
+ARG WITH_LIBWEBSOCKETS
+
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBWEBSOCKETS" \
+    "https://github.com/warmcat/libwebsockets"
+
+#
+# Build dependency: FreeRDP
+#
+
+FROM builder AS freerdp
+ARG BUILD_DIR
+ARG FREERDP_ARM_OPTS
+ARG FREERDP_OPTS
+ARG FREERDP_X86_OPTS
+ARG PREFIX_DIR
+ARG WITH_FREERDP
+COPY .freerdp.patch /tmp/freerdp.patch
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "FREERDP" \
+    "https://github.com/FreeRDP/FreeRDP"
+
+#
+# STAGE 7: Collect dependencies built by previous stages and build
+# guacamole-server.
+#
+FROM builder AS guacamole-server
+ARG BUILD_DIR
+ARG FREERDP_VERSION
+ARG GUACAMOLE_SERVER_ARM_OPTS
+ARG GUACAMOLE_SERVER_OPTS
+ARG GUACAMOLE_SERVER_X86_OPTS
+ARG PREFIX_DIR
+
+# Copy dependencies built in previous stages
+# COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=freerdp ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=libssh2 ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=libtelnet ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=libvncclient ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=libwebsockets ${PREFIX_DIR} ${PREFIX_DIR}
+COPY ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh
+RUN chmod 755 ${PREFIX_DIR}/entrypoint.sh
+
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
+
+# Determine location of the FREERDP library based on the version.
 ARG FREERDP_LIB_PATH=${PREFIX_DIR}/lib/freerdp${FREERDP_VERSION}
 
-RUN ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies.sh \
+# Record the packages of all runtime library dependencies
+RUN ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies_trixie.sh \
         ${PREFIX_DIR}/sbin/guacd               \
         ${PREFIX_DIR}/lib/libguac-client-*.so  \
-        ${FREERDP_LIB_PATH}/*guac*.so   \
+        ${PREFIX_DIR}/lib/freerdp2/*guac*.so   \
         > ${PREFIX_DIR}/DEPENDENCIES
 
 FROM debian:trixie-slim
+ARG PREFIX_DIR
 
-ARG PREFIX_DIR=/opt/guacamole
+# Copy build artifacts into this stage
+COPY --from=guacamole-server ${PREFIX_DIR} ${PREFIX_DIR}
 
-ENV LANG="en_US.UTF-8"
+# Runtime environment
+ENV LC_ALL=C.UTF-8
 ENV LD_LIBRARY_PATH=${PREFIX_DIR}/lib
 ENV GUACD_LOG_LEVEL=info
 
-ARG RUNTIME_DEPENDENCIES="            \
-        ca-certificates               \
-        netcat-openbsd"
 
-ARG DEBIAN_FRONTEND=noninteractive
-COPY --from=builder ${PREFIX_DIR} ${PREFIX_DIR}
+# Bring runtime environment up to date and install runtime dependencies
+ARG RUNTIME_DEPENDENCIES="\
+    ca-certificates       \
+    libcairo2             \
+    libwebp-dev            \
+    libjpeg62-turbo        \
+    netcat-openbsd"
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    set -ex \
-    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && apt-get update \
+RUN apt-get update \
     && apt-get install -y --no-install-recommends $RUNTIME_DEPENDENCIES \
-    && apt-get install -y --no-install-recommends $(cat "${PREFIX_DIR}"/DEPENDENCIES) \
-    && echo "no" | dpkg-reconfigure dash
+    && apt-get install -y --no-install-recommends $(cat "${PREFIX_DIR}"/DEPENDENCIES)
 
+# Checks the operating status every 5 minutes with a timeout of 5 seconds
 HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
 
+# Create a new user guacd
 ARG UID=1000
 ARG GID=1000
 RUN groupadd --gid $GID guacd
-RUN useradd --system --create-home --shell /usr/sbin/nologin --uid $UID --gid $GID guacd
+RUN useradd --system --create-home --shell /sbin/nologin --uid $UID --gid $GID guacd
 
+# Run with user guacd
 USER guacd
 
+# Expose the default listener port
 EXPOSE 4822
 
-CMD /opt/guacamole/sbin/guacd -b 0.0.0.0 -L $GUACD_LOG_LEVEL -f
+# Start guacd, listening on port 0.0.0.0:4822
+#
+# Note the path here MUST correspond to the value specified in the 
+# PREFIX_DIR build argument.
+#
+CMD [ "/opt/guacamole/entrypoint.sh" ]
+
