@@ -259,7 +259,7 @@ ARG FREERDP_OPTS
 ARG FREERDP_X86_OPTS
 ARG PREFIX_DIR
 ARG WITH_FREERDP
-COPY .freerdp.patch /tmp/freerdp.patch
+COPY freerdp.patch /tmp/freerdp.patch
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "FREERDP" \
     "https://github.com/FreeRDP/FreeRDP"
 
