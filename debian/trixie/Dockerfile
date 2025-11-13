@@ -282,7 +282,7 @@ COPY --from=libssh2 ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libtelnet ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libvncclient ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libwebsockets ${PREFIX_DIR} ${PREFIX_DIR}
-COPY ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh
+RUN cp ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh
 RUN chmod 755 ${PREFIX_DIR}/entrypoint.sh
 
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
