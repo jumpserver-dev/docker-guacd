@@ -20,6 +20,11 @@ on:
         required: true
         default: "linux/amd64,linux/arm64"
         type: string
+      tag:
+        description: "Tag"
+        required: false
+        default: "1.6.0-trixie"
+        type: string
 
 
 jobs:
@@ -67,7 +72,7 @@ jobs:
             VERSION=${{ github.event.inputs.version }}
             FREERDP_VERSION=${{ github.event.inputs.freerdp_version }}
           tags: |
-            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-${{ matrix.arch }}
+            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.tag }}-${{ matrix.arch }}
           outputs: type=image,oci-mediatypes=true,compression=zstd,compression-level=3,force-compression=true
         if: contains(github.event.inputs.PLATFORMS, matrix.platform)
   merge-manifest:
@@ -95,7 +100,7 @@ jobs:
       - name: Merge manifest
         run: |
           docker buildx imagetools create \
-            -t jumpserver/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }} \
-            -t ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }} \
-            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-amd64 \
-            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.version }}-${{ github.event.inputs.distro }}-arm64
+            -t jumpserver/guacd:${{ github.event.inputs.tag }} \
+            -t ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.tag }} \
+            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.tag }}-amd64 \
+            ghcr.io/jumpserver-dev/guacd:${{ github.event.inputs.tag }}-arm64
