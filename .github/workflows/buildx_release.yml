@@ -28,10 +28,10 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-24.04
+            runner: ubuntu-22.04
             arch: amd64
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-22.04-arm
             arch: arm64
 
     runs-on: ${{ matrix.runner }}
@@ -71,7 +71,7 @@ jobs:
           outputs: type=image,oci-mediatypes=true,compression=zstd,compression-level=3,force-compression=true
         if: contains(github.event.inputs.PLATFORMS, matrix.platform)
   merge-manifest:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     needs: build
     # 只有同时包含 amd64 + arm64 时才需要合并，多架构 manifest
     if: >
