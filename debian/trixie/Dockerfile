@@ -174,7 +174,7 @@ RUN set -ex \
     && apt-get install -y --no-install-recommends $TOOLS \
     && echo "no" | dpkg-reconfigure dash
 
-ARG VERSION=main
+ARG VERSION=1.5.5
 
 RUN set -ex \
     && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
@@ -308,21 +308,29 @@ COPY --from=guacamole-server ${PREFIX_DIR} ${PREFIX_DIR}
 
 # Runtime environment
 ENV LC_ALL=C.UTF-8
+ENV LANG="en_US.UTF-8"
 ENV LD_LIBRARY_PATH=${PREFIX_DIR}/lib
 ENV GUACD_LOG_LEVEL=info
 
+ARG DEBIAN_FRONTEND=noninteractive
 
 # Bring runtime environment up to date and install runtime dependencies
 ARG RUNTIME_DEPENDENCIES="\
     ca-certificates       \
+    fonts-dejavu          \
+    fonts-liberation      \
+    ghostscript           \
     libcairo2             \
-    libwebp-dev            \
-    libjpeg62-turbo        \
-    netcat-openbsd"
+    libjpeg62-turbo       \
+    netcat-openbsd        \
+    xfonts-terminus"
 
-RUN apt-get update \
+RUN set -ex \
+    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && apt-get update \
     && apt-get install -y --no-install-recommends $RUNTIME_DEPENDENCIES \
-    && apt-get install -y --no-install-recommends $(cat "${PREFIX_DIR}"/DEPENDENCIES)
+    && apt-get install -y --no-install-recommends $(cat "${PREFIX_DIR}"/DEPENDENCIES) \
+    && rm -rf /var/lib/apt/lists/*
 
 # Checks the operating status every 5 minutes with a timeout of 5 seconds
 HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
