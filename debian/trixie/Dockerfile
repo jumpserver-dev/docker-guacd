@@ -184,6 +184,8 @@ RUN set -ex \
 # Copy generic, automatic build script
 COPY list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/
 COPY autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
+COPY entrypoint.sh ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh
+COPY link-freerdp-plugins.sh ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh
 RUN set -ex \
     && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
 # Build dependency: openssl
@@ -285,10 +287,15 @@ COPY --from=libssh2 ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libtelnet ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libvncclient ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libwebsockets ${PREFIX_DIR} ${PREFIX_DIR}
-RUN cp ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh
-RUN chmod 755 ${PREFIX_DIR}/entrypoint.sh
+RUN mkdir -p ${PREFIX_DIR}/bin \
+    && cp ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh \
+    && cp ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh \
+    && chmod 755 ${PREFIX_DIR}/entrypoint.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
 
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
+
+# Pre-link FreeRDP plugins while running as root
+RUN PREFIX_DIR=${PREFIX_DIR} ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
 
 # Determine location of the FREERDP library based on the version.
 ARG FREERDP_LIB_PATH=${PREFIX_DIR}/lib/freerdp${FREERDP_VERSION}
