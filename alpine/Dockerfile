@@ -1,3 +1,31 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+#
+# Dockerfile for guacamole-server
+#
+
+# The Alpine Linux image that should be used as the basis for the guacd image
+# NOTE: Using 3.18 because the required openssl1.1-compat-dev package was
+# removed in more recent versions.
+ARG ALPINE_BASE_IMAGE=3.18
+
 # The target architecture of the build. Valid values are "ARM" and "X86". By
 # default, this is detected automatically.
 ARG BUILD_ARCHITECTURE
@@ -124,94 +152,46 @@ ARG LIBWEBSOCKETS_OPTS="\
 
 ARG LIBWEBSOCKETS_X86_OPTS=""
 
-ARG WITH_OPENSSL='OpenSSL_1(\_\d+\w*)+'
-
-ARG OPENSSL_OPTS=""
-
-# Build context prefix (empty if building from debian/trixie, "debian/trixie/" if building from project root)
-ARG BUILD_CONTEXT_PREFIX=""
-
+#
 # Base builder image that will be used by subsequent build stages, including
 # for building dependencies of guacamole-server.
 #
 
-FROM debian:trixie-slim AS builder
+FROM alpine:${ALPINE_BASE_IMAGE} AS builder
 ARG BUILD_DIR
-ARG BUILD_CONTEXT_PREFIX
 
-ARG BUILD_DEPENDENCIES="          \
-        autoconf                  \
-        automake                  \
-        build-essential           \
-        cmake                     \
-        gcc                       \
-        g++                       \
-        libcairo2-dev             \
-        libcunit1-dev             \
-        libjpeg62-turbo-dev       \
-        libjson-c-dev             \
-        libkrb5-dev               \
-        libsdl2-dev               \
-        libsdl2-ttf-dev           \
-        libssl-dev                \
-        libtool                   \
-        libwebkit2gtk-4.1-dev     \
-        libwebp-dev               \
-        make"
+# Install build dependencies
+RUN apk add --no-cache                \
+        autoconf                      \
+        automake                      \
+        build-base                    \
+        cairo-dev                     \
+        cjson-dev                     \
+        cmake                         \
+        cunit-dev                     \
+        git                           \
+        grep                          \
+        krb5-dev                      \
+        libjpeg-turbo-dev             \
+        libpng-dev                    \
+        libtool                       \
+        libwebp-dev                   \
+        make                          \
+        openssl1.1-compat-dev         \
+        pango-dev                     \
+        pulseaudio-dev                \
+        sdl2-dev                      \
+        sdl2_ttf-dev                  \
+        util-linux-dev                \
+        webkit2gtk-dev
 
-ARG TOOLS="                       \
-        ca-certificates           \
-        ccache                    \
-        curl                      \
-        git                       \
-        wget"
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-ENV USE_CCACHE=1 \
-    PATH=/usr/lib/ccache:${PATH}
-
-RUN set -ex \
-    && rm -f /etc/apt/apt.conf.d/docker-clean \
-    && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' >/etc/apt/apt.conf.d/keep-cache \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends $BUILD_DEPENDENCIES \
-    && apt-get install -y --no-install-recommends $TOOLS \
-    && echo "no" | dpkg-reconfigure dash
-
-ARG VERSION=1.6.0
-
-RUN set -ex \
-    && git clone -b ${VERSION} --depth=1 https://github.com/apache/guacamole-server ${BUILD_DIR} \
-    && rm -f ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh \
-    && rm -rf ${BUILD_DIR}/.git
-    
 # Copy generic, automatic build script
-# Support building from both project root and debian/trixie directory
-COPY ${BUILD_CONTEXT_PREFIX}list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies_trixie.sh
-COPY ${BUILD_CONTEXT_PREFIX}autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
-COPY ${BUILD_CONTEXT_PREFIX}entrypoint.sh ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh
-COPY ${BUILD_CONTEXT_PREFIX}link-freerdp-plugins.sh ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh
-COPY ${BUILD_CONTEXT_PREFIX}freerdp.patch /tmp/freerdp.patch
-RUN set -ex \
-    && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
-
-#
-# Build dependency: openssl
-#
-
-FROM builder AS openssl
-ARG BUILD_DIR
-ARG PREFIX_DIR
-ARG WITH_OPENSSL
-ARG OPENSSL_OPTS
-
-RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "OPENSSL" \
-    "https://github.com/openssl/openssl"
+COPY ./src/guacd-docker/bin/autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/
 
 #
 # Build dependency: libssh2
 #
+
 FROM builder AS libssh2
 ARG BUILD_DIR
 ARG LIBSSH2_ARM_OPTS
@@ -219,9 +199,6 @@ ARG LIBSSH2_OPTS
 ARG LIBSSH2_X86_OPTS
 ARG PREFIX_DIR
 ARG WITH_LIBSSH2
-
-# Copy OpenSSL dependency
-COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
 
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBSSH2" \
     "https://github.com/libssh2/libssh2"
@@ -283,10 +260,6 @@ ARG FREERDP_X86_OPTS
 ARG PREFIX_DIR
 ARG WITH_FREERDP
 
-# Copy OpenSSL dependency
-COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
-
-# freerdp.patch is already copied in builder stage
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "FREERDP" \
     "https://github.com/FreeRDP/FreeRDP"
 
@@ -294,6 +267,7 @@ RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "FREERDP" \
 # STAGE 7: Collect dependencies built by previous stages and build
 # guacamole-server.
 #
+
 FROM builder AS guacamole-server
 ARG BUILD_DIR
 ARG FREERDP_VERSION
@@ -303,63 +277,54 @@ ARG GUACAMOLE_SERVER_X86_OPTS
 ARG PREFIX_DIR
 
 # Copy dependencies built in previous stages
-COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=freerdp ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libssh2 ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libtelnet ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libvncclient ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libwebsockets ${PREFIX_DIR} ${PREFIX_DIR}
-RUN mkdir -p ${PREFIX_DIR}/bin \
-    && cp ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh ${PREFIX_DIR}/entrypoint.sh \
-    && cp ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh \
-    && chmod 755 ${PREFIX_DIR}/entrypoint.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
+
+# Use guacamole-server source from build context
+COPY . ${BUILD_DIR}
 
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
-
-# Pre-link FreeRDP plugins while running as root
-RUN PREFIX_DIR=${PREFIX_DIR} ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
 
 # Determine location of the FREERDP library based on the version.
 ARG FREERDP_LIB_PATH=${PREFIX_DIR}/lib/freerdp${FREERDP_VERSION}
 
 # Record the packages of all runtime library dependencies
-RUN ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies_trixie.sh \
+RUN ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies.sh \
         ${PREFIX_DIR}/sbin/guacd               \
         ${PREFIX_DIR}/lib/libguac-client-*.so  \
-        ${PREFIX_DIR}/lib/freerdp2/*guac*.so   \
+        ${FREERDP_LIB_PATH}/*guac*.so   \
         > ${PREFIX_DIR}/DEPENDENCIES
 
-FROM debian:trixie-slim
+#
+# STAGE 8: Final, runtime image.
+#
+
+# Use same Alpine version as the base for the runtime image
+FROM alpine:${ALPINE_BASE_IMAGE} AS runtime
 ARG PREFIX_DIR
 
 # Copy build artifacts into this stage
 COPY --from=guacamole-server ${PREFIX_DIR} ${PREFIX_DIR}
 
+# Bring runtime environment up to date and install runtime dependencies
+RUN apk add --no-cache                \
+        ca-certificates               \
+        font-noto-cjk                 \
+        ghostscript                   \
+        netcat-openbsd                \
+        shadow                        \
+        terminus-font                 \
+        ttf-dejavu                    \
+        ttf-liberation                \
+        util-linux-login && \
+    xargs apk add --no-cache < ${PREFIX_DIR}/DEPENDENCIES
+
 # Runtime environment
 ENV LC_ALL=C.UTF-8
-ENV LANG="en_US.UTF-8"
 ENV LD_LIBRARY_PATH=${PREFIX_DIR}/lib
-ENV GUACD_LOG_LEVEL=info
-
-ARG DEBIAN_FRONTEND=noninteractive
-
-# Bring runtime environment up to date and install runtime dependencies
-ARG RUNTIME_DEPENDENCIES="\
-    ca-certificates       \
-    fonts-dejavu          \
-    fonts-liberation      \
-    ghostscript           \
-    libcairo2             \
-    libjpeg62-turbo       \
-    netcat-openbsd        \
-    xfonts-terminus"
-
-RUN set -ex \
-    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends $RUNTIME_DEPENDENCIES \
-    && apt-get install -y --no-install-recommends $(cat "${PREFIX_DIR}"/DEPENDENCIES) \
-    && rm -rf /var/lib/apt/lists/*
 
 # Checks the operating status every 5 minutes with a timeout of 5 seconds
 HEALTHCHECK --interval=5m --timeout=5s CMD nc -z 127.0.0.1 4822 || exit 1
@@ -376,10 +341,5 @@ USER guacd
 # Expose the default listener port
 EXPOSE 4822
 
-# Start guacd, listening on port 0.0.0.0:4822
-#
-# Note the path here MUST correspond to the value specified in the 
-# PREFIX_DIR build argument.
-#
-CMD [ "/opt/guacamole/entrypoint.sh" ]
-
+COPY ./src/guacd-docker/bin/entrypoint.sh /opt/guacamole/
+ENTRYPOINT [ "/opt/guacamole/entrypoint.sh" ]
