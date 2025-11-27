@@ -83,8 +83,7 @@ ARG FREERDP_X86_OPTS=""
 ARG GUACAMOLE_SERVER_ARM_OPTS=""
 
 ARG GUACAMOLE_SERVER_OPTS="\
-    --disable-guaclog \
-    CPPFLAGS=-Wno-error=deprecated-declarations"
+    --disable-guaclog"
 
 ARG GUACAMOLE_SERVER_X86_OPTS=""
 
@@ -314,7 +313,8 @@ RUN mkdir -p ${PREFIX_DIR}/bin \
     && cp ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh \
     && chmod 755 ${PREFIX_DIR}/entrypoint.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
 
-RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
+# Build guacamole-server with NDEBUG to disable assertions
+RUN DISABLE_ASSERTIONS=1 ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
 
 # Pre-link FreeRDP plugins while running as root
 RUN PREFIX_DIR=${PREFIX_DIR} ${PREFIX_DIR}/bin/link-freerdp-plugins.sh

@@ -55,7 +55,15 @@ LOCATION="$2"
 
 # Pre-populate build control variables such that the custom build prefix is
 # used for C headers, locating libraries, etc.
-export CFLAGS="-I${PREFIX_DIR}/include"
+CFLAGS_BASE="-I${PREFIX_DIR}/include"
+CPPFLAGS_BASE="-I${PREFIX_DIR}/include"
+# Append NDEBUG if DISABLE_ASSERTIONS is set
+if [ -n "$DISABLE_ASSERTIONS" ]; then
+    CFLAGS_BASE="$CFLAGS_BASE -DNDEBUG"
+    CPPFLAGS_BASE="$CPPFLAGS_BASE -DNDEBUG"
+fi
+export CFLAGS="$CFLAGS_BASE"
+export CPPFLAGS="$CPPFLAGS_BASE"
 export LDFLAGS="-Wl,-rpath,${PREFIX_DIR}/lib -L${PREFIX_DIR}/lib"
 export PKG_CONFIG_PATH="${PREFIX_DIR}/lib/pkgconfig" 
 
