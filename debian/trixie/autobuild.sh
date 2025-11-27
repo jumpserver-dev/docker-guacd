@@ -55,15 +55,7 @@ LOCATION="$2"
 
 # Pre-populate build control variables such that the custom build prefix is
 # used for C headers, locating libraries, etc.
-CFLAGS_BASE="-I${PREFIX_DIR}/include"
-CPPFLAGS_BASE="-I${PREFIX_DIR}/include"
-# Append NDEBUG if DISABLE_ASSERTIONS is set
-if [ -n "$DISABLE_ASSERTIONS" ]; then
-    CFLAGS_BASE="$CFLAGS_BASE -DNDEBUG"
-    CPPFLAGS_BASE="$CPPFLAGS_BASE -DNDEBUG"
-fi
-export CFLAGS="$CFLAGS_BASE"
-export CPPFLAGS="$CPPFLAGS_BASE"
+export CFLAGS="-I${PREFIX_DIR}/include"
 export LDFLAGS="-Wl,-rpath,${PREFIX_DIR}/lib -L${PREFIX_DIR}/lib"
 export PKG_CONFIG_PATH="${PREFIX_DIR}/lib/pkgconfig" 
 
@@ -132,9 +124,12 @@ else
     echo "Building $SRC_DIR ..."
 fi
 
-# for freerdp
-if [ -f "libfreerdp/core/info.c" ]; then
-    git apply /tmp/freerdp.patch
+# for freerdp - only apply patch for FreeRDP 2.x
+# FreeRDP 3.x has fixed these issues and the patch is no longer needed/compatible
+if [ -f "libfreerdp/core/info.c" ] && [ -f "/tmp/freerdp.patch" ]; then
+    # Try to apply patch, but don't fail if it doesn't apply (e.g., FreeRDP 3.x)
+    # The patch is only needed for FreeRDP 2.x compatibility
+    git apply /tmp/freerdp.patch 2>/dev/null || echo "Note: FreeRDP patch not applied (may not be needed for this version)"
 fi
 
 

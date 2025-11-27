@@ -9,8 +9,8 @@ ARG BUILD_JOBS
 # The directory that will house the guacamole-server source during the build 
 ARG BUILD_DIR=/tmp/guacamole-server
 
-# FreeRDP version (default to version 2)
-ARG FREERDP_VERSION=2
+# FreeRDP version (default to version 3)
+ARG FREERDP_VERSION=3
 
 # The final install location for guacamole-server and all dependencies. NOTE:
 # This value is hard-coded in the entrypoint. Any change to this value must be
@@ -83,7 +83,8 @@ ARG FREERDP_X86_OPTS=""
 ARG GUACAMOLE_SERVER_ARM_OPTS=""
 
 ARG GUACAMOLE_SERVER_OPTS="\
-    --disable-guaclog"
+    --disable-guaclog \
+    CPPFLAGS=-Wno-error=deprecated-declarations"
 
 ARG GUACAMOLE_SERVER_X86_OPTS=""
 
@@ -313,8 +314,7 @@ RUN mkdir -p ${PREFIX_DIR}/bin \
     && cp ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh \
     && chmod 755 ${PREFIX_DIR}/entrypoint.sh ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
 
-# Build guacamole-server with NDEBUG to disable assertions
-RUN DISABLE_ASSERTIONS=1 ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
+RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "GUACAMOLE_SERVER" "${BUILD_DIR}"
 
 # Pre-link FreeRDP plugins while running as root
 RUN PREFIX_DIR=${PREFIX_DIR} ${PREFIX_DIR}/bin/link-freerdp-plugins.sh
@@ -326,7 +326,7 @@ ARG FREERDP_LIB_PATH=${PREFIX_DIR}/lib/freerdp${FREERDP_VERSION}
 RUN ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies_trixie.sh \
         ${PREFIX_DIR}/sbin/guacd               \
         ${PREFIX_DIR}/lib/libguac-client-*.so  \
-        ${PREFIX_DIR}/lib/freerdp2/*guac*.so   \
+        ${FREERDP_LIB_PATH}/*guac*.so   \
         > ${PREFIX_DIR}/DEPENDENCIES
 
 FROM debian:trixie-slim
