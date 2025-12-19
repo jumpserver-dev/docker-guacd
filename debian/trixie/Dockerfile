@@ -182,21 +182,30 @@ RUN set -ex \
     && rm -rf ${BUILD_DIR}/.git
     
 # Copy generic, automatic build script
-COPY list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/
+COPY list-dependencies_trixie.sh ${BUILD_DIR}/src/guacd-docker/bin/list-dependencies_trixie.sh
 COPY autobuild.sh ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh
 COPY entrypoint.sh ${BUILD_DIR}/src/guacd-docker/bin/entrypoint.sh
 COPY link-freerdp-plugins.sh ${BUILD_DIR}/src/guacd-docker/bin/link-freerdp-plugins.sh
+COPY freerdp.patch /tmp/freerdp.patch
 RUN set -ex \
     && chmod 755 ${BUILD_DIR}/src/guacd-docker/bin/*.sh
+
+#
 # Build dependency: openssl
+#
+
+FROM builder AS openssl
+ARG BUILD_DIR
 ARG PREFIX_DIR
 ARG WITH_OPENSSL
 ARG OPENSSL_OPTS=""
+
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "OPENSSL" \
     "https://github.com/openssl/openssl"
 
-
+#
 # Build dependency: libssh2
+#
 FROM builder AS libssh2
 ARG BUILD_DIR
 ARG LIBSSH2_ARM_OPTS
@@ -204,6 +213,9 @@ ARG LIBSSH2_OPTS
 ARG LIBSSH2_X86_OPTS
 ARG PREFIX_DIR
 ARG WITH_LIBSSH2
+
+# Copy OpenSSL dependency
+COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
 
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "LIBSSH2" \
     "https://github.com/libssh2/libssh2"
@@ -264,7 +276,11 @@ ARG FREERDP_OPTS
 ARG FREERDP_X86_OPTS
 ARG PREFIX_DIR
 ARG WITH_FREERDP
-COPY freerdp.patch /tmp/freerdp.patch
+
+# Copy OpenSSL dependency
+COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
+
+# freerdp.patch is already copied in builder stage
 RUN ${BUILD_DIR}/src/guacd-docker/bin/autobuild.sh "FREERDP" \
     "https://github.com/FreeRDP/FreeRDP"
 
@@ -281,7 +297,7 @@ ARG GUACAMOLE_SERVER_X86_OPTS
 ARG PREFIX_DIR
 
 # Copy dependencies built in previous stages
-# COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
+COPY --from=openssl ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=freerdp ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libssh2 ${PREFIX_DIR} ${PREFIX_DIR}
 COPY --from=libtelnet ${PREFIX_DIR} ${PREFIX_DIR}
